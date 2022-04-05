@@ -1,0 +1,75 @@
+---
+title: "ChessGamesEDA"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+
+```{r}
+chess_games = read.csv('chess_games.csv')
+chess_games
+```
+
+
+Typical Chess Rating Categories
+
+Rating:Category
+
+2500+ : Grandmaster
+2200-2499 : Master
+2000-2199 : Expert
+1800-1999 : Class A
+1600:1799 : Class B
+1400-1599 : Class C
+1200:1399 : Class D
+900:1200 : Novice 
+
+Lichess ratings are about 300 rating points above (starting rating is 1200 for FIDE and Chess.com, 1500 on LiChess)
+
+```{r}
+chess_games = chess_games %>%
+  mutate(white_rating_adj = white_rating - 300) %>%
+  mutate(black_rating_adj = black_rating - 300) %>%
+  mutate(rating_diff = abs(white_rating - black_rating)) %>%
+  mutate(avg_rating = (white_rating_adj + black_rating_adj) / 2) %>%
+  mutate(rating_category = ifelse(avg_rating >= 2500, 'Grandmaster',
+                            ifelse(avg_rating >= 2200 & avg_rating < 2500, 'Master',
+                              ifelse(avg_rating >= 2000 & avg_rating < 2200, 'Expert',
+                                ifelse(avg_rating >= 1800 & avg_rating < 2000, 'ClassA',
+                                  ifelse(avg_rating >= 1600 & avg_rating < 1800, 'ClassB',
+                                    ifelse(avg_rating >= 1400 & avg_rating < 1600, 'ClassC',
+                                      ifelse(avg_rating >= 1200 & avg_rating < 1400, 'ClassD',
+                                        ifelse(avg_rating >= 900 & avg_rating < 1200, 'Novice',
+                                               'Rookie')
+  ))))))))
+```
+
+```{r}
+chess_games %>%
+  group_by(rating_category) %>%
+  summarise(count = n(), 
+            avg_turns = mean(turns)) %>%
+  arrange(-avg_turns)
+```
+
+
+
+```{r}
+ggplot(chess_games, aes(rating_diff)) +
+  geom_histogram()
+```
+
+
+```{r}
+chess_games_filt = chess_games %>%
+  filter(rating_diff < 300)
+
+ggplot(chess_games_filt, aes(avg_rating)) +
+  geom_histogram()
+```
+
+
