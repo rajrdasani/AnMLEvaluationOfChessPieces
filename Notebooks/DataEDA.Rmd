@@ -10,8 +10,8 @@ library(ggplot2)
 
 
 ```{r}
-chess_games = read.csv('chess_games.csv')
-chess_games
+chess_games = read.csv('../Data/chess_games.csv')
+head(chess_games)
 ```
 
 

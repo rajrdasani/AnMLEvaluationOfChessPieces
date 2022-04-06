@@ -1,0 +1,76 @@
+---
+title: "ChessScriptAnalysis"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+
+```{r}
+chess_games = read.csv('../Data/chess_games.csv')
+head(chess_games)
+```
+
+Get one 
+```{r}
+script1 = chess_games$moves[3]
+```
+
+```{r}
+script1_split = strsplit(script1,"[[:space:]]")[[1]]
+script1_split
+
+script1_white_moves = script1_split[c(TRUE, FALSE)]
+script1_black_moves = script1_split[c(FALSE, TRUE)]
+```
+
+Find which piece a certain piece took and aggregate for a game
+Bxf8 means that a bishop took a piece on f8
+
+```{r}
+test_move = "Bxf8"
+take = "x"
+
+grepl(take, test_move, fixed=TRUE)
+strsplit(test_move, "[x]")[[1]][2]
+
+test_move2 = "Rf8"
+strsplit(test_move2, "[x]")[[1]]
+
+grepl('f8', test_move, fixed = TRUE)
+strsplit(test_move2, "f8")[[1]][1]
+```
+
+```{r}
+take = "x"
+
+for (i in c(1:length(script1_white_moves))) {
+  white_move = script1_white_moves[i]
+  print(white_move)
+  #Step 1: Find the moves where a piece was taken (all the moves that have an x in the term)
+  if(grepl(take, white_move, fixed=TRUE)) {
+    #Step 2: Extract the move number of the take move and the piece that took 
+    move_num = i
+    piece_capturer = strsplit(white_move, "[x]")[[1]][1]
+    board_loc = strsplit(white_move, "[x]")[[1]][2]
+    print(piece_capturer)
+    print(board_loc)
+    #Step 3: Identify which piece it took 
+    for (j in c(move_num:1)) {
+      black_move = script1_black_moves[j] 
+      print(black_move)
+      if (grepl(board_loc, black_move, fixed = TRUE)) {
+        piece_taken = strsplit(black_move, board_loc)[[1]][1]
+        break
+        print(piece_taken)
+      } 
+    }
+  }
+}
+
+
+```
+
