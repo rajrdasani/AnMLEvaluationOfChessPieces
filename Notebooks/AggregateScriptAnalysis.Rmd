@@ -1,0 +1,182 @@
+---
+title: "AggregateScriptAnalysis"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+```
+
+```{r}
+source("ScriptAnalysisFunction.R")
+```
+
+
+```{r}
+chess_games = read.csv('../Data/chess_games.csv')
+head(chess_games)
+```
+
+Filter games such that there are at least 4 turns
+```{r}
+chess_games = chess_games %>%
+  filter(turns > 4)
+```
+
+
+```{r}
+col_names = c('num_moves', 'num_checks', 'num_pieces_taken', 'value_pieces_taken', 'list_pieces_taken')
+row_names = c('pawn', 'knight', 'bishop', 'rook', 'queen', 'king')
+
+all_col_names = c(paste(row_names, col_names[1], sep = "_"),
+  paste(row_names, col_names[2], sep = "_"),
+  paste(row_names, col_names[3], sep = "_"),
+  paste(row_names, col_names[4], sep = "_"),
+  paste(row_names, col_names[5], sep = "_"))
+
+white_col_names = paste("white", all_col_names, sep = "_")
+black_col_names = paste("black", all_col_names, sep = "_")
+
+all_col_names = c(white_col_names, black_col_names)
+all_col_names
+```
+
+```{r}
+for (i in c(1:nrow(chess_games))) {
+  chess_games[i, 17:76] = game_piece_analysis_func(chess_games$moves[i])
+}
+```
+
+```{r}
+colnames(chess_games)[17:76] = all_col_names
+chess_games[, 17:40] <- sapply(chess_games[, 17:40], as.numeric)
+chess_games[, 47:70] <- sapply(chess_games[, 47:70], as.numeric)
+```
+
+```{r}
+chess_games = chess_games %>%
+  mutate(white_rating_adj = white_rating - 300) %>%
+  mutate(black_rating_adj = black_rating - 300) %>%
+  mutate(rating_diff = abs(white_rating - black_rating)) %>%
+  mutate(avg_rating = (white_rating_adj + black_rating_adj) / 2) %>%
+  mutate(rating_category = ifelse(avg_rating >= 2500, 'Grandmaster',
+                            ifelse(avg_rating >= 2200 & avg_rating < 2500, 'Master',
+                              ifelse(avg_rating >= 2000 & avg_rating < 2200, 'Expert',
+                                ifelse(avg_rating >= 1800 & avg_rating < 2000, 'ClassA',
+                                  ifelse(avg_rating >= 1600 & avg_rating < 1800, 'ClassB',
+                                    ifelse(avg_rating >= 1400 & avg_rating < 1600, 'ClassC',
+                                      ifelse(avg_rating >= 1200 & avg_rating < 1400, 'ClassD',
+                                        ifelse(avg_rating >= 900 & avg_rating < 1200, 'Novice',
+                                               'Rookie')
+  ))))))))
+```
+
+```{r}
+chess_summ = chess_games %>%
+  ##too few Expert (only 82)
+  filter(rating_category != 'Expert') %>%
+  group_by(rating_category) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE)
+```
+
+```{r}
+ggplot(chess_summ, aes(rating_category, turns)) + 
+  geom_bar(stat = 'identity', fill = 'steelblue') + 
+  geom_text(aes(label=round(turns,2)), vjust=1.6, color="white", size=3.5)+
+  labs(
+    title = 'Total Chess Turns',
+    subtitle = 'On average, higher level chess games had more moves',
+    x = "Rating Category", 
+    y = "Average Turns per Game"
+  )
+```
+
+
+```{r}
+chess_summ_moves = chess_summ[,c(1,4,8:13,32:37)] %>%
+  mutate(pawn_num_moves = white_pawn_num_moves + black_pawn_num_moves) %>%
+  mutate(knight_num_moves = white_knight_num_moves + black_knight_num_moves) %>%
+  mutate(bishop_num_moves = white_bishop_num_moves + black_bishop_num_moves) %>%
+  mutate(rook_num_moves = white_rook_num_moves + black_rook_num_moves) %>%
+  mutate(queen_num_moves = white_queen_num_moves + black_queen_num_moves) %>%
+  mutate(king_num_moves = white_king_num_moves + black_king_num_moves)
+
+
+chess_summ_moves[,c(3:20)] = chess_summ_moves[,c(3:20)] / chess_summ_moves$turns
+
+
+```
+
+```{r}
+library(reshape2)
+
+dfm <- melt(chess_summ_moves[,c('rating_category', 'rook_num_moves','queen_num_moves')],
+            id.vars = 1)
+ggplot(dfm, aes(rating_category, value)) + 
+  geom_bar(aes(fill = variable),stat = "identity",position = "dodge") +
+  geom_text(aes(label=round(value,4)*100), 
+            color="black", size=3.5, vjust = 1.5,
+
+            position = position_dodge(.9))+
+  labs(
+    title = 'Percentage of Moves per Piece',
+    subtitle = 'On average, worse chess players used their queen more often, 
+    while not their rooks',
+    x = "Rating Category", 
+    y = "% of Turns Piece was Moved"
+  )
+```
+
+```{r}
+chess_summ_valpiecestaken = chess_summ[,c(1,26:31, 50:55)]
+
+
+chess_summ_valpiecestaken = chess_summ_valpiecestaken %>%
+  mutate(knight_value_pieces_taken = (white_knight_value_pieces_taken +
+           black_knight_value_pieces_taken) / 2) %>%
+  mutate(bishop_value_pieces_taken = (white_bishop_value_pieces_taken +
+           black_bishop_value_pieces_taken) / 2) %>%
+  mutate(rook_value_pieces_taken = (white_rook_value_pieces_taken +
+           black_rook_value_pieces_taken) / 2)
+
+
+ggplot(chess_summ_valpiecestaken, aes(rating_category, knight_value_pieces_taken)) + 
+  geom_bar(stat = 'identity', fill = 'steelblue') +
+  geom_text(aes(label=round(knight_value_pieces_taken,2)), 
+            vjust=1.6, color="white", size=3.5) +
+  geom_hline(yintercept = 3) +
+  labs(
+    title = 'Average Value of Pieces Taken by Knight',
+    subtitle = 'On average, Knights value of 3 is accurate to the value of pieces it takes',
+    x = "Rating Category", 
+    y = "Average Value of Pieces Taken by Knight")
+
+ggplot(chess_summ_valpiecestaken, aes(rating_category, bishop_value_pieces_taken)) + 
+  geom_bar(stat = 'identity', fill = 'steelblue') +
+  geom_text(aes(label=round(bishop_value_pieces_taken,2)), 
+            vjust=1.6, color="white", size=3.5) +
+  geom_hline(yintercept = 3) +
+  labs(
+    title = 'Average Value of Pieces Taken by Bishop',
+    subtitle = 'On average, Bishop value of 3 is undervalued to the value of pieces it takes',
+    x = "Rating Category", 
+    y = "Average Value of Pieces Taken by Bishop")
+
+ggplot(chess_summ_valpiecestaken, aes(rating_category, rook_value_pieces_taken)) + 
+  geom_bar(stat = 'identity', fill = 'steelblue') +
+  geom_text(aes(label=round(rook_value_pieces_taken,2)), 
+            vjust=1.6, color="white", size=3.5) +
+  geom_hline(yintercept = 5) +
+  labs(
+    title = 'Average Value of Pieces Taken by Rook',
+    subtitle = 'On average, Rooks value of 5 do not take the value they are associated with',
+    x = "Rating Category", 
+    y = "Average Value of Pieces Taken by Rook")
+
+```
+

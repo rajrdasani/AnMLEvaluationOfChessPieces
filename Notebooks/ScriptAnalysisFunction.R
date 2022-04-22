@@ -7,13 +7,17 @@ library(stringr)
 name2value_func = function(piece_scriptname) {
   piece_value = 0
   
+  #initially was just piecename == "B" but had to change because of the following:
+  #for chess notation, if two of the same piece can take the piece, then it will be notated with 2 letters such as Nbxa4 which stands for the Knight on the b file taking the piece on a4
+  
+  
   if(piece_scriptname == "" || str_detect(piece_scriptname, "[[:lower:]]")) {
     piece_value = 1
-  } else if (piece_scriptname == "N" || piece_scriptname == "B") {
+  } else if (grepl('N', piece_scriptname) || grepl('B', piece_scriptname)) {
     piece_value = 3
-  } else if (piece_scriptname == "R") {
+  } else if (grepl('R', piece_scriptname)) {
     piece_value = 5
-  } else if (piece_scriptname == "Q") {
+  } else if (grepl('Q', piece_scriptname)) {
     piece_value = 9
   }
   
@@ -24,13 +28,17 @@ name2value_func = function(piece_scriptname) {
 scriptname2fullname_func = function(piece_scriptname) {
   if(piece_scriptname == "" || str_detect(piece_scriptname, "[[:lower:]]")) {
     fullname = "Pawn"
-  } else if (piece_scriptname == "N") {
+  } 
+  #initially was just piecename == "B" but had to change because of the following:
+  #for chess notation, if two of the same piece can take the piece, then it will be notated with 2 letters such as Nbxa4 which stands for the Knight on the b file taking the piece on a4
+  
+    else if (grepl('N', piece_scriptname)) {
     fullname = "Knight"
-  } else if (piece_scriptname == "B") {
+  } else if (grepl('B', piece_scriptname)) {
     fullname = "Bishop"
-  } else if (piece_scriptname == "R") {
+  } else if (grepl('R', piece_scriptname)) {
     fullname = "Rook"
-  } else if (piece_scriptname == "Q") {
+  } else if (grepl('Q', piece_scriptname)) {
     fullname = "Queen"
   } else if (piece_scriptname == "K") {
     fullname = "King"
@@ -75,23 +83,75 @@ original_piece_locations = function(piece_color, piece_loc) {
   return(piece)
 }
 
-#initialize dataframe for white piece analysis  
-white_piece_analysis = as.data.frame(matrix(nrow = 6, ncol = 4))
-white_piece_analysis[is.na(white_piece_analysis)] = 0
-rownames(white_piece_analysis) = c('Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King')
-colnames(white_piece_analysis) = c('num_moves', 'num_checks', 'num_pieces_taken', 'value_pieces_taken')
-white_piece_analysis$list_pieces_taken = ""
 
-#copy for black, but make sure they are independent
-black_piece_analysis = data.frame(white_piece_analysis)
 
 
 #function to create dataframe
 game_piece_analysis_func = function(full_script) {
+  
+  #initialize dataframe for white piece analysis  
+  white_piece_analysis = as.data.frame(matrix(nrow = 6, ncol = 4))
+  white_piece_analysis[is.na(white_piece_analysis)] = 0
+  rownames(white_piece_analysis) = c('Pawn', 'Knight', 'Bishop', 'Rook', 'Queen', 'King')
+  colnames(white_piece_analysis) = c('num_moves', 'num_checks', 'num_pieces_taken', 'value_pieces_taken')
+  white_piece_analysis$list_pieces_taken = ""
+  
+  #copy for black, but make sure they are independent
+  black_piece_analysis = data.frame(white_piece_analysis)
+  
+  
+  #extract script and split into white and black moves
   script_split = strsplit(full_script,"[[:space:]]")[[1]]
 
   script_white = script_split[c(TRUE, FALSE)]
   script_black = script_split[c(FALSE, TRUE)]
+  
+  
+  #EDGE: replace castling with two moves (plus one to be able to keep them on the same color)
+  #not including when a check leads to a check, will skip later 
+  for (i in c(1:length(script_white))) {
+    move = script_white[i]
+    
+    if (move %in% c('O-O', 'O-O#', 'O-O+')) {
+      #take out O-O from the script 
+      script_white = script_white[!script_white %in% grep(paste0('O-O', collapse = "|"), script_white, value = T)]
+      
+      #replace with the 2 moves that make up a castle
+      script_white <<- append(script_white, c('Kg1','Skip','Rf1'), i-1)
+      break
+      
+    } else if (move %in% c('O-O-O', 'O-O-O#', 'O-O-O+')) {
+      #take out O-O-O from the script 
+      script_white = script_white[!script_white %in% grep(paste0('O-O-O', collapse = "|"), script_white, value = T)]
+      
+      #replace with the 2 moves that make up a castle
+      script_white <<- append(script_white, c('Kc1','Skip','Rd1'), i-1)
+      break
+    }
+
+  }
+  
+  for (i in c(1:length(script_black))) {
+    move = script_black[i]
+    
+    if (move %in% c('O-O', 'O-O#', 'O-O+')) {
+      #take out O-O from the script 
+      script_black = script_black[!script_black %in% grep(paste0('O-O', collapse = "|"), script_black, value = T)]
+      
+      #replace with the 2 moves that make up a castle
+      script_black <<- append(script_black, c('Kg8','Skip','Rf8'), i-1)
+      break
+      
+    } else if (move %in% c('O-O-O', 'O-O-O#', 'O-O-O+')) {
+      #take out O-O-O from the script 
+      script_black = script_black[!script_black %in% grep(paste0('O-O-O', collapse = "|"), script_black, value = T)]
+      
+      #replace with the 2 moves that make up a castle
+      script_black <<- append(script_black, c('Kc8','Skip','Rd8'), i-1)
+      break
+    }
+    
+  }
   
   #Fill in column for number of moves
   
@@ -263,12 +323,6 @@ game_piece_analysis_func = function(full_script) {
       }
     }
   }
-  
-  print('white')
-  print(white_piece_analysis)
-  print('black')
-  print(black_piece_analysis)
-  
   # Because R does not support returning 2 objects, we will use the function to convert the dataframes into one long vector - making it easy to add to a potential dataframe
   
   white_lst = as.list(white_piece_analysis)
