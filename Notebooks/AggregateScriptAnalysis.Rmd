@@ -180,3 +180,11 @@ ggplot(chess_summ_valpiecestaken, aes(rating_category, rook_value_pieces_taken))
 
 ```
 
+
+Export data
+```{r}
+write.csv(chess_games,"../Data/chess_games_analyzed.csv", row.names = FALSE)
+write.csv(chess_summ, "../Data/chess_summ.csv", row.names = FALSE)
+
+```
+
