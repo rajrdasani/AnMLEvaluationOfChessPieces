@@ -1,0 +1,94 @@
+---
+title: "Model2:LogOdds"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(tidyr)
+library(data.table)
+```
+
+```{r}
+chess_games_analyzed = read.csv('../Data/chess_games_analyzed.csv')
+chess_games_analyzed
+```
+```{r}
+chess_games_analyzed_2 = chess_games_analyzed %>%
+  unite('white_allpieces_taken', 41:46, remove = FALSE) %>%
+  unite('black_allpieces_taken', 71:76, remove = FALSE)
+
+endofgame_pieces = function(lst_allpiecestaken){
+  
+  #clean list of all pieces taken and turn it into a vector
+  cleanlst_allpiecestaken = str_replace_all(lst_allpiecestaken, "_", "")
+  cleanlst_allpiecestaken = str_split(cleanlst_allpiecestaken, " ")[[1]]
+  cleanlst_allpiecestaken = cleanlst_allpiecestaken[nzchar(cleanlst_allpiecestaken)]
+  
+  #create summarized table
+  df = data.frame(table(cleanlst_allpiecestaken))
+  df$cleanlst_allpiecestaken = as.character(df$cleanlst_allpiecestaken)
+  
+  if(!("Pawn" %in% df$cleanlst_allpiecestaken)) {
+    df[nrow(df) + 1,] = c('Pawn', 0)
+  }
+  if(!("Knight" %in% df$cleanlst_allpiecestaken)) {
+    df[nrow(df) + 1,] = c('Knight', 0)
+  }
+  if(!("Bishop" %in% df$cleanlst_allpiecestaken)) {
+    df[nrow(df) + 1,] = c('Bishop', 0)
+  }
+  if(!("Rook" %in% df$cleanlst_allpiecestaken)) {
+    df[nrow(df) + 1,] = c('Rook', 0)
+  }
+  if(!("Queen" %in% df$cleanlst_allpiecestaken)) {
+    df[nrow(df) + 1,] = c('Queen', 0)
+  }
+  
+  df = df %>%
+    #arrange dataframe alphabetically so intial_pieces appending is clean
+    arrange(cleanlst_allpiecestaken) %>%
+    mutate(initial_pieces = c(2,2,8,1,2)) %>%
+    mutate(Freq = as.numeric(Freq)) %>%
+    mutate(initial_pieces = as.numeric(initial_pieces)) %>%
+    #find remaining pieces for each game 
+    mutate(remaining_pieces = initial_pieces - Freq)
+  
+  #EDGE: for promotions, there may be more than the initial pieces, leading to a -1 in the remaining pieces column. Therefore, make every negative value a positive one
+  
+  df[,4][df[,4] < 0] <- 0
+  
+  
+  #transpose dataframe to be able to append to dataframe
+  df = df[,c(1,4)]
+  df_t = transpose(df)
+  colnames(df_t) = paste0(df_t[1,], "_remaining")
+  df_t = df_t[2,]
+  
+  
+  return(df_t)
+}
+
+chess_games_analyzed
+
+
+for(i in c(1:nrow(chess_games_analyzed))) {
+  white_pieces = chess_games_analyzed$white_allpieces_taken[i]
+  black_pieces = chess_games_analyzed$black_allpieces_taken[i]
+  
+  white_df = endofgame_pieces(white_pieces)
+  black_df = endofgame_pieces(black_pieces)
+  
+  
+}
+
+#Next Steps
+#1. Intialize columns
+#2. Add within for loop appending values to certain columns 
+#3. Make sure it runs for entire dataframe
+```
+
+Subset dataframe to only include relevant columns
+

@@ -143,3 +143,11 @@ ggplot(dfm, aes(fill = rating_category, y = value, x = variable)) +
 
 ```
 
+```{r}
+output = first_values[c(1,6,7), ]
+library(gridExtra)
+pdf("../Images/first_valuation.pdf", height=11, width=8.5)
+grid.table(output)
+dev.off()
+```
+

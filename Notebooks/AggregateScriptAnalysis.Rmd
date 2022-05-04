@@ -77,6 +77,13 @@ chess_games = chess_games %>%
 ```
 
 ```{r}
+chess_games %>%
+  group_by(rating_category) %>%
+  count()
+```
+
+
+```{r}
 chess_summ = chess_games %>%
   ##too few Expert (only 82)
   filter(rating_category != 'Expert') %>%
@@ -187,4 +194,3 @@ write.csv(chess_games,"../Data/chess_games_analyzed.csv", row.names = FALSE)
 write.csv(chess_summ, "../Data/chess_summ.csv", row.names = FALSE)
 
 ```
-

@@ -22,7 +22,7 @@ name2value_func = function(piece_scriptname) {
   }
   
   return(piece_value)
-}
+} 
 
 #helper function to translate string piece name to full name (for nicer dataframe)
 scriptname2fullname_func = function(piece_scriptname) {
@@ -86,7 +86,7 @@ original_piece_locations = function(piece_color, piece_loc) {
 
 
 
-#function to create dataframe
+#function to create dataframe of number of moves, number of checks, number of pieces taken, and the value of pieces taken for each piece for a game, on both sides
 game_piece_analysis_func = function(full_script) {
   
   #initialize dataframe for white piece analysis  
@@ -263,7 +263,7 @@ game_piece_analysis_func = function(full_script) {
     }
   }
   
-  #Fill in columns num_pieces_taken, value_pieces_taken, and list_pieces_taken
+  #Fill in columns for black's side - num_pieces_taken, value_pieces_taken, and list_pieces_taken
   
   for (i in c(1:length(script_black))) {
     black_move = script_black[i]
@@ -323,7 +323,8 @@ game_piece_analysis_func = function(full_script) {
       }
     }
   }
-  # Because R does not support returning 2 objects, we will use the function to convert the dataframes into one long vector - making it easy to add to a potential dataframe
+  
+  # Because R does not support returning 2 objects cleanly, we will use the function to convert the dataframes into one long vector - making it easy to add to a potential dataframe
   
   white_lst = as.list(white_piece_analysis)
   black_lst = as.list(black_piece_analysis)
