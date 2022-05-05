@@ -11,14 +11,14 @@ name2value_func = function(piece_scriptname) {
   #for chess notation, if two of the same piece can take the piece, then it will be notated with 2 letters such as Nbxa4 which stands for the Knight on the b file taking the piece on a4
   
   
-  if(piece_scriptname == "" || str_detect(piece_scriptname, "[[:lower:]]")) {
-    piece_value = 1
-  } else if (grepl('N', piece_scriptname) || grepl('B', piece_scriptname)) {
+  if (grepl('N', piece_scriptname) || grepl('B', piece_scriptname)) {
     piece_value = 3
   } else if (grepl('R', piece_scriptname)) {
     piece_value = 5
   } else if (grepl('Q', piece_scriptname)) {
     piece_value = 9
+  } else if (piece_scriptname == "" || str_detect(piece_scriptname, "[[:lower:]]")) {
+    piece_value = 1
   }
   
   return(piece_value)
@@ -26,13 +26,13 @@ name2value_func = function(piece_scriptname) {
 
 #helper function to translate string piece name to full name (for nicer dataframe)
 scriptname2fullname_func = function(piece_scriptname) {
-  if(piece_scriptname == "" || str_detect(piece_scriptname, "[[:lower:]]")) {
-    fullname = "Pawn"
-  } 
+  
+  fullname = "None"
+  
   #initially was just piecename == "B" but had to change because of the following:
   #for chess notation, if two of the same piece can take the piece, then it will be notated with 2 letters such as Nbxa4 which stands for the Knight on the b file taking the piece on a4
   
-    else if (grepl('N', piece_scriptname)) {
+  if (grepl('N', piece_scriptname)) {
     fullname = "Knight"
   } else if (grepl('B', piece_scriptname)) {
     fullname = "Bishop"
@@ -42,6 +42,8 @@ scriptname2fullname_func = function(piece_scriptname) {
     fullname = "Queen"
   } else if (piece_scriptname == "K") {
     fullname = "King"
+  } else if (piece_scriptname == "" || str_detect(piece_scriptname, "[[:lower:]]")) {
+    fullname = "Pawn"
   }
   
   return(fullname)
@@ -50,7 +52,9 @@ scriptname2fullname_func = function(piece_scriptname) {
 
 #helper function to tell us where piece start (use for script analysis)
 original_piece_locations = function(piece_color, piece_loc) {
+  
   piece = "None"
+  
   if(piece_color == 'white') {
     if (piece_loc %in% c('a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2')) {
       piece = ""
@@ -85,6 +89,66 @@ original_piece_locations = function(piece_color, piece_loc) {
 
 
 
+#helper function for edge case
+#EDGE: replace castling with two moves (plus one "Skip" place holder to be able to keep them on the same color)
+#not including when a check leads to a check, will skip later \
+
+# use to only replace the one castle so theres no worry of vectorization placing
+castling_replace = function(script) {
+  
+  castling = c('O-O', 'O-O#', 'O-O+', 'O-O-O', 'O-O-O#', 'O-O-O+')
+  
+  castle_locs = which(script %in% castling)
+  castle_loc1 = castle_locs[1]
+  castle_mov = script[castle_loc1]
+  castling_rep_moves = c("")
+  
+  ## FIND WHICH MOVES SHOULD BE ADDED IN PLACE OF THE CASTLE 
+  
+  #if odd move castle, then its a white castle
+  if (castle_loc1 %% 2 == 1) {
+    #if short castle
+    if (castle_mov %in% c('O-O', 'O-O#', 'O-O+')) {
+        
+      #moves that will be substituted for a castle
+      castling_rep_moves = c('Kg1','Skip','Rf1')
+        
+        
+    #if long castle
+    } else if (castle_mov %in% c('O-O-O', 'O-O-O#', 'O-O-O+')) {
+        
+      castling_rep_moves = c('Kc1','Skip','Rd1')
+        
+    }
+      
+    #if even move number then its a black castle
+  } else {
+    if (castle_mov %in% c('O-O', 'O-O#', 'O-O+')) {
+        
+      castling_rep_moves = c('Kg8','Skip','Rf8')
+        
+    } else if (castle_mov %in% c('O-O-O', 'O-O-O#', 'O-O-O+')) {
+        
+      castling_rep_moves = c('Kc8','Skip','Rd8')
+    }
+  }
+  
+  #split script such that we can add the 3 moves into the script seamlessly
+  script_pre_castle = script[1:castle_loc1-1]
+  script_post_castle = script[castle_loc1+1:length(script)]
+   
+  script_final = c(script_pre_castle, castling_rep_moves, script_post_castle) 
+  script_final <- script_final[!is.na(script_final)]
+  #substitute in placement x's 
+  #script <- rep(script, 1 + (length(castling_rep_moves) - 1)*(script == castle_mov))
+  
+  #replace
+  #script[script == castle_mov] <- castling_rep_moves
+  
+  return(script_final)
+  
+}
+
 
 #function to create dataframe of number of moves, number of checks, number of pieces taken, and the value of pieces taken for each piece for a game, on both sides
 game_piece_analysis_func = function(full_script) {
@@ -100,63 +164,36 @@ game_piece_analysis_func = function(full_script) {
   black_piece_analysis = data.frame(white_piece_analysis)
   
   
-  #extract script and split into white and black moves
+  #vectorize script such that its a vector with each element as a move rather than one long string
   script_split = strsplit(full_script,"[[:space:]]")[[1]]
-
-  script_white = script_split[c(TRUE, FALSE)]
-  script_black = script_split[c(FALSE, TRUE)]
   
   
   #EDGE: replace castling with two moves (plus one to be able to keep them on the same color)
   #not including when a check leads to a check, will skip later 
-  for (i in c(1:length(script_white))) {
-    move = script_white[i]
-    
-    if (move %in% c('O-O', 'O-O#', 'O-O+')) {
-      #take out O-O from the script 
-      script_white = script_white[!script_white %in% grep(paste0('O-O', collapse = "|"), script_white, value = T)]
-      
-      #replace with the 2 moves that make up a castle
-      script_white <<- append(script_white, c('Kg1','Skip','Rf1'), i-1)
-      break
-      
-    } else if (move %in% c('O-O-O', 'O-O-O#', 'O-O-O+')) {
-      #take out O-O-O from the script 
-      script_white = script_white[!script_white %in% grep(paste0('O-O-O', collapse = "|"), script_white, value = T)]
-      
-      #replace with the 2 moves that make up a castle
-      script_white <<- append(script_white, c('Kc1','Skip','Rd1'), i-1)
-      break
-    }
+  
+  castling = c('O-O', 'O-O#', 'O-O+', 'O-O-O', 'O-O-O#', 'O-O-O+')
+  castling_move_numbers = which(script_split %in% castling)
+  total_castles = length(castling_move_numbers)
 
+  while(total_castles > 0) {
+    script_split = castling_replace(script_split)
+    total_castles = total_castles - 1
   }
   
-  for (i in c(1:length(script_black))) {
-    move = script_black[i]
-    
-    if (move %in% c('O-O', 'O-O#', 'O-O+')) {
-      #take out O-O from the script 
-      script_black = script_black[!script_black %in% grep(paste0('O-O', collapse = "|"), script_black, value = T)]
-      
-      #replace with the 2 moves that make up a castle
-      script_black <<- append(script_black, c('Kg8','Skip','Rf8'), i-1)
-      break
-      
-    } else if (move %in% c('O-O-O', 'O-O-O#', 'O-O-O+')) {
-      #take out O-O-O from the script 
-      script_black = script_black[!script_black %in% grep(paste0('O-O-O', collapse = "|"), script_black, value = T)]
-      
-      #replace with the 2 moves that make up a castle
-      script_black <<- append(script_black, c('Kc8','Skip','Rd8'), i-1)
-      break
-    }
-    
-  }
+  #split script into white and black
+  script_white = script_split[c(TRUE, FALSE)]
+  script_black = script_split[c(FALSE, TRUE)]
+  
   
   #Fill in column for number of moves
   
   for (i in c(1:length(script_white))) {
     move = script_white[i]
+    
+    #skip refers to what was added as a filler move for castling
+    if (move == "Skip") {
+      next
+    }
     first_char = substr(move, 1, 1)
     piece = scriptname2fullname_func(first_char)
     
@@ -167,6 +204,12 @@ game_piece_analysis_func = function(full_script) {
   
   for (i in c(1:length(script_black))) {
     move = script_black[i]
+    
+    #skip refers to what was added as a filler move for castling
+    if (move == "Skip") {
+      next
+    }
+    
     first_char = substr(move, 1, 1)
     piece = scriptname2fullname_func(first_char)
     
@@ -215,7 +258,8 @@ game_piece_analysis_func = function(full_script) {
       ###Example: axb5 leads to the piece_capturer = a & board_loc = b5
       move_num <<- i
       piece_capturer <<- strsplit(white_move, "[x]")[[1]][1]
-      board_loc <<- strsplit(white_move, "[x]")[[1]][2]
+      #take out any "+" or "#" for checks and checkmates
+      board_loc <<- str_replace_all(strsplit(white_move, "[x]")[[1]][2], "[^[:alnum:]]", "")
       
       
       #Step 3: Identify which piece it took by iterating backwards through black pieces, 
@@ -224,19 +268,30 @@ game_piece_analysis_func = function(full_script) {
       #Intialize, used for later in case taken piece hasn't moved
       piece_taken <<- "RESET"
       
-      for (j in c((move_num-1):1)) {
-        black_move <- script_black[j]
-        piece_select = strsplit(black_move, board_loc)[[1]][1]
+      #EN PESSANT EDGE CASE 
+      #special_loc will return the square a piece would be taken if an enpessant occured
+      #so for white, if board_loc was f6, the special_move would be f5
+      special_loc = paste0(strsplit(board_loc, "")[[1]][1], as.numeric(strsplit(board_loc, "")[[1]][2]) - 1)
+        
+      if(str_detect(piece_capturer, "[[:lower:]]") && grepl('6', board_loc) && grepl(script_black[i-1], special_loc)) {
+        piece_taken <<- strsplit(board_loc, "")[[1]][1]
+      }
         
         
-        if (grepl(board_loc, black_move, fixed = TRUE)) {
-          #take out excess x (which indicated a previous take)
-          piece_taken <<- str_replace(piece_select, 'x', '')
-          #if successful piece found, break loop
-          break
+      if(piece_taken == "RESET") {
+        for (j in c((move_num-1):1)) {
+          black_move <- script_black[j]
+          piece_select = strsplit(black_move, board_loc)[[1]][1]
+          
+          
+          if (grepl(board_loc, black_move, fixed = TRUE)) {
+            #take out excess x (which indicated a previous take)
+            piece_taken <<- str_replace(piece_select, 'x', '')
+            #if successful piece found, break loop
+            break
+          }
         }
       }
-      
       
       ###Edge case: piece that was taken has not moved yet
       if (piece_taken == "RESET") {
@@ -275,7 +330,7 @@ game_piece_analysis_func = function(full_script) {
       ###Example: axb5 leads to the piece_capturer = a & board_loc = b5
       move_num <<- i
       piece_capturer <<- strsplit(black_move, "[x]")[[1]][1]
-      board_loc <<- strsplit(black_move, "[x]")[[1]][2]
+      board_loc <<- str_replace_all(strsplit(black_move, "[x]")[[1]][2], "[^[:alnum:]]", "")
       
       
       #Step 3: Identify which piece it took by iterating backwards through black pieces, 
@@ -284,24 +339,35 @@ game_piece_analysis_func = function(full_script) {
       #Intialize, used for later in case taken piece hasn't moved
       piece_taken <<- "RESET"
       
+      #EN PESSANT EDGE CASE 
+      #special_loc will return the square a piece would be taken if an enpessant occured
+      #so for white, if board_loc was f6, the special_move would be f5
+      special_loc = paste0(strsplit(board_loc, "")[[1]][1], as.numeric(strsplit(board_loc, "")[[1]][2]) + 1)
+      
+      if(str_detect(piece_capturer, "[[:lower:]]") && grepl('3', board_loc) && grepl(script_white[i], special_loc)) {
+        piece_taken <<- strsplit(board_loc, "")[[1]][1]
+      }
+      
+      if(piece_taken == "RESET") {
       #no more move_num - 1 since black moves already happen after white moves
-      for (j in c((move_num):1)) {
-        white_move <- script_white[j]
-        piece_select = strsplit(white_move, board_loc)[[1]][1]
+        for (j in c((move_num):1)) {
+          white_move <- script_white[j]
+          piece_select = strsplit(white_move, board_loc)[[1]][1]
         
-        
-        if (grepl(board_loc, white_move, fixed = TRUE)) {
-          #take out excess x (which indicated a previous take)
-          piece_taken <<- str_replace(piece_select, 'x', '')
-          #if successful piece found, break loop
-          break
+          if (grepl(board_loc, white_move, fixed = TRUE)) {
+            #take out excess x (which indicated a previous take)
+            piece_taken <<- str_replace(piece_select, 'x', '')
+            #if successful piece found, break loop
+            break
+          }
         }
       }
       
       
-      ###Edge case: piece that was taken has not moved yet
+      
+      ###Edge case: white piece that was taken has not moved yet
       if (piece_taken == "RESET") {
-        piece_taken <<- original_piece_locations("black", board_loc)
+        piece_taken <<- original_piece_locations("white", board_loc)
       }
       
       #step 4: Add values to dataframe
@@ -333,4 +399,5 @@ game_piece_analysis_func = function(full_script) {
                     black_lst[[1]], black_lst[[2]], black_lst[[3]], black_lst[[4]], black_lst[[5]])
   
   return(output_vector)
+  
 }

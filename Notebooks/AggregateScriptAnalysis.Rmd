@@ -25,7 +25,7 @@ head(chess_games)
 Filter games such that there are at least 4 turns
 ```{r}
 chess_games = chess_games %>%
-  filter(turns > 4)
+  filter(turns > 10)
 ```
 
 
@@ -43,13 +43,18 @@ white_col_names = paste("white", all_col_names, sep = "_")
 black_col_names = paste("black", all_col_names, sep = "_")
 
 all_col_names = c(white_col_names, black_col_names)
-all_col_names
+head(all_col_names)
 ```
+
 
 ```{r}
 for (i in c(1:nrow(chess_games))) {
+  print(i)
   chess_games[i, 17:76] = game_piece_analysis_func(chess_games$moves[i])
 }
+
+chess_games$moves[5887]
+game_piece_analysis_func(chess_games$moves[5882])
 ```
 
 ```{r}
@@ -101,6 +106,8 @@ ggplot(chess_summ, aes(rating_category, turns)) +
     x = "Rating Category", 
     y = "Average Turns per Game"
   )
+
+ggsave("../Images/averageturns.pdf")
 ```
 
 
@@ -125,18 +132,25 @@ library(reshape2)
 dfm <- melt(chess_summ_moves[,c('rating_category', 'rook_num_moves','queen_num_moves')],
             id.vars = 1)
 ggplot(dfm, aes(rating_category, value)) + 
-  geom_bar(aes(fill = variable),stat = "identity",position = "dodge") +
-  geom_text(aes(label=round(value,4)*100), 
-            color="black", size=3.5, vjust = 1.5,
-
-            position = position_dodge(.9))+
+  geom_bar(aes(fill = variable),stat = "identity", position = 'dodge') +
+  geom_text(data = dfm,
+            aes(x = rating_category, y = value, 
+                label=format(paste(round(value, 2)*100,"%",sep = "")),
+                group = variable),
+            color="black", size=3.5,
+            position = position_dodge(width = .9),
+            hjust = 1) +
   labs(
     title = 'Percentage of Moves per Piece',
     subtitle = 'On average, worse chess players used their queen more often, 
     while not their rooks',
     x = "Rating Category", 
     y = "% of Turns Piece was Moved"
-  )
+  ) +
+  coord_flip()
+
+ggsave("../Images/percentageofmovesperpiece.pdf")
+
 ```
 
 ```{r}
@@ -149,7 +163,9 @@ chess_summ_valpiecestaken = chess_summ_valpiecestaken %>%
   mutate(bishop_value_pieces_taken = (white_bishop_value_pieces_taken +
            black_bishop_value_pieces_taken) / 2) %>%
   mutate(rook_value_pieces_taken = (white_rook_value_pieces_taken +
-           black_rook_value_pieces_taken) / 2)
+           black_rook_value_pieces_taken) / 2) %>%
+  mutate(queen_value_pieces_taken = (white_queen_value_pieces_taken +
+           black_queen_value_pieces_taken))
 
 
 ggplot(chess_summ_valpiecestaken, aes(rating_category, knight_value_pieces_taken)) + 
@@ -163,6 +179,8 @@ ggplot(chess_summ_valpiecestaken, aes(rating_category, knight_value_pieces_taken
     x = "Rating Category", 
     y = "Average Value of Pieces Taken by Knight")
 
+ggsave("../Images/knightavgvaluetaken.pdf")
+
 ggplot(chess_summ_valpiecestaken, aes(rating_category, bishop_value_pieces_taken)) + 
   geom_bar(stat = 'identity', fill = 'steelblue') +
   geom_text(aes(label=round(bishop_value_pieces_taken,2)), 
@@ -173,6 +191,9 @@ ggplot(chess_summ_valpiecestaken, aes(rating_category, bishop_value_pieces_taken
     subtitle = 'On average, Bishop value of 3 is undervalued to the value of pieces it takes',
     x = "Rating Category", 
     y = "Average Value of Pieces Taken by Bishop")
+
+ggsave("../Images/bishopavgvaluetaken.pdf")
+
 
 ggplot(chess_summ_valpiecestaken, aes(rating_category, rook_value_pieces_taken)) + 
   geom_bar(stat = 'identity', fill = 'steelblue') +
@@ -185,6 +206,22 @@ ggplot(chess_summ_valpiecestaken, aes(rating_category, rook_value_pieces_taken))
     x = "Rating Category", 
     y = "Average Value of Pieces Taken by Rook")
 
+ggsave("../Images/rookavgvaluetaken.pdf")
+
+ggplot(chess_summ_valpiecestaken, aes(rating_category, queen_value_pieces_taken)) + 
+  geom_bar(stat = 'identity', fill = 'steelblue') +
+  geom_text(aes(label=round(queen_value_pieces_taken,2)), 
+            vjust=1.6, color="white", size=3.5) +
+  geom_hline(yintercept = 9) +
+  labs(
+    title = 'Average Value of Pieces Taken by Queen',
+    subtitle = "On average, Queen's value of 9 do not take the value they are associated with",
+    x = "Rating Category", 
+    y = "Average Value of Pieces Taken by Queen")
+
+ggsave("../Images/queenavgvaluetaken.pdf")
+
+
 ```
 
 
@@ -192,5 +229,4 @@ Export data
 ```{r}
 write.csv(chess_games,"../Data/chess_games_analyzed.csv", row.names = FALSE)
 write.csv(chess_summ, "../Data/chess_summ.csv", row.names = FALSE)
-
 ```

@@ -9,17 +9,27 @@ library(ggplot2)
 library(stringr)
 library(tidyr)
 library(data.table)
+library(tibble)
 ```
 
 ```{r}
 chess_games_analyzed = read.csv('../Data/chess_games_analyzed.csv')
 chess_games_analyzed
 ```
+
+
+Combine lists of all pieces taken. 
+Make sure not to run this more than once
 ```{r}
 chess_games_analyzed_2 = chess_games_analyzed %>%
   unite('white_allpieces_taken', 41:46, remove = FALSE) %>%
-  unite('black_allpieces_taken', 71:76, remove = FALSE)
+  unite('black_allpieces_taken', 72:77, remove = FALSE)
+```
 
+
+
+Create function to find what pieces are remaining
+```{r}
 endofgame_pieces = function(lst_allpiecestaken){
   
   #clean list of all pieces taken and turn it into a vector
@@ -29,8 +39,17 @@ endofgame_pieces = function(lst_allpiecestaken){
   
   #create summarized table
   df = data.frame(table(cleanlst_allpiecestaken))
+  
+  #EDGE CASE
+  if(length(df) == 1){
+    df = data.frame(cleanlst_allpiecestaken = 'Pawn',
+           Freq = 0)
+  }
+  
+  #clean dataframe
   df$cleanlst_allpiecestaken = as.character(df$cleanlst_allpiecestaken)
   
+  #fill in such that we have each piece in the dataframe 
   if(!("Pawn" %in% df$cleanlst_allpiecestaken)) {
     df[nrow(df) + 1,] = c('Pawn', 0)
   }
@@ -71,24 +90,72 @@ endofgame_pieces = function(lst_allpiecestaken){
   return(df_t)
 }
 
-chess_games_analyzed
+```
 
 
-for(i in c(1:nrow(chess_games_analyzed))) {
-  white_pieces = chess_games_analyzed$white_allpieces_taken[i]
-  black_pieces = chess_games_analyzed$black_allpieces_taken[i]
+All rows
+```{r}
+endofgame_pieces(chess_games_analyzed_2$white_allpieces_taken[2])[1,c(1:5)]
+
+chess_games_analyzed_2 = chess_games_analyzed_2 %>%
+  add_column(white_bishop_rem = NA,
+             white_knight_rem = NA,
+             white_pawn_rem = NA,
+             white_queen_rem = NA,
+             white_rook_rem = NA,
+             black_bishop_rem = NA,
+             black_knight_rem = NA,
+             black_pawn_rem = NA,
+             black_queen_rem = NA,
+             black_rook_rem = NA)
+  
+
+for(i in c(1:nrow(chess_games_analyzed_2))) {
+  
+  print(i)
+  
+  white_pieces = chess_games_analyzed_2$white_allpieces_taken[i]
+  black_pieces = chess_games_analyzed_2$black_allpieces_taken[i]
+  
+  print('step 1')
   
   white_df = endofgame_pieces(white_pieces)
   black_df = endofgame_pieces(black_pieces)
   
+  print('step 2')
+  
+  
+  chess_games_analyzed_2[i,84:88] = white_df[1,c(1:5)]
+  chess_games_analyzed_2[i,89:93] = black_df[1,c(1:5)]
   
 }
-
-#Next Steps
-#1. Intialize columns
-#2. Add within for loop appending values to certain columns 
-#3. Make sure it runs for entire dataframe
 ```
+
+
+```{r}
+chess_games_analyzed_2[5883,]$moves
+
+endofgame_pieces(chess_games_analyzed_2$white_allpieces_taken[5883])
+
+test = chess_games_analyzed_2$white_allpieces_taken[5883]
+
+test
+test2 = str_replace_all(test, "_", "")
+
+test3 = str_split(test2, " ")[[1]]
+
+test4 = test3[nzchar(test3)]
+
+df = data.frame(table(test4))
+df
+
+df
+length(df)
+
+
+chess_games_analyzed_2[2702,]$moves
+```
+
 
 Subset dataframe to only include relevant columns
 
