@@ -392,6 +392,7 @@ compare_coef_df_full$ClassB_logodds = classb_coef_df$logodds_knightscaled
 compare_coef_df_full$ClassC_logodds = classc_coef_df$logodds_knightscaled
 compare_coef_df_full$ClassD_logodds = classd_coef_df$logodds_knightscaled
 compare_coef_df_full = compare_coef_df_full[, c(1,2,6,5,4,3)]
+compare_coef_df_full$Piece <- c('Intercept', 'PawnValue', 'KnightValue', 'BishopValue', 'RookValue', 'QueenValue')
 compare_coef_df_full[,c(2:6)] = round(compare_coef_df_full[,c(2:6)], 2)
 compare_coef_df_full
 

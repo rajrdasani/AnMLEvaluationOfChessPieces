@@ -107,7 +107,7 @@ ggplot(chess_summ, aes(rating_category, turns)) +
     y = "Average Turns per Game"
   )
 
-ggsave("../Images/averageturns.pdf")
+ggsave("../Images/EDA_AverageTurns.pdf")
 ```
 
 
@@ -149,7 +149,7 @@ ggplot(dfm, aes(rating_category, value)) +
   ) +
   coord_flip()
 
-ggsave("../Images/percentageofmovesperpiece.pdf")
+ggsave("../Images/EDA_PercentageOfMovesPerPiece.pdf")
 
 ```
 
@@ -179,7 +179,7 @@ ggplot(chess_summ_valpiecestaken, aes(rating_category, knight_value_pieces_taken
     x = "Rating Category", 
     y = "Average Value of Pieces Taken by Knight")
 
-ggsave("../Images/knightavgvaluetaken.pdf")
+ggsave("../Images/EDA_KnightAvgValueTaken.pdf")
 
 ggplot(chess_summ_valpiecestaken, aes(rating_category, bishop_value_pieces_taken)) + 
   geom_bar(stat = 'identity', fill = 'steelblue') +
@@ -192,7 +192,7 @@ ggplot(chess_summ_valpiecestaken, aes(rating_category, bishop_value_pieces_taken
     x = "Rating Category", 
     y = "Average Value of Pieces Taken by Bishop")
 
-ggsave("../Images/bishopavgvaluetaken.pdf")
+ggsave("../Images/EDA_BishopAvgValueTaken.pdf")
 
 
 ggplot(chess_summ_valpiecestaken, aes(rating_category, rook_value_pieces_taken)) + 
@@ -206,7 +206,7 @@ ggplot(chess_summ_valpiecestaken, aes(rating_category, rook_value_pieces_taken))
     x = "Rating Category", 
     y = "Average Value of Pieces Taken by Rook")
 
-ggsave("../Images/rookavgvaluetaken.pdf")
+ggsave("../Images/EDA_RookAvgValueTaken.pdf")
 
 ggplot(chess_summ_valpiecestaken, aes(rating_category, queen_value_pieces_taken)) + 
   geom_bar(stat = 'identity', fill = 'steelblue') +
@@ -219,7 +219,7 @@ ggplot(chess_summ_valpiecestaken, aes(rating_category, queen_value_pieces_taken)
     x = "Rating Category", 
     y = "Average Value of Pieces Taken by Queen")
 
-ggsave("../Images/queenavgvaluetaken.pdf")
+ggsave("../Images/EDA_QueenAvgValueTaken.pdf")
 
 
 ```

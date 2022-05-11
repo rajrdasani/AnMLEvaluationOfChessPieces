@@ -4,6 +4,14 @@ output: html_document
 ---
 
 ```{r}
+library(gridExtra)
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(tidyr)
+```
+
+```{r}
 chess_summ = read.csv('../Data/chess_summ.csv')
 chess_summ
 ```
@@ -77,6 +85,8 @@ ggplot(newdf, aes(value_pieces_taken, num_checks, color = piece, size = rating_c
     x = 'Value of Pieces Taken',
     y = 'Number of Checks'
   )
+
+ggsave("../Images/Model1_ValuePiecesTakenVsNumberChecks.pdf")
 ```
 
 Assuming there was a finite sum of pieces - how would it be split for different levels?
@@ -141,11 +151,11 @@ ggplot(dfm, aes(fill = rating_category, y = value, x = variable)) +
     y = 'Value - Proposed or Real'
   )
 
+ggsave("../Images/Model1_ValuationGraph.pdf")
 ```
 
 
 ```{r}
-library(dplyr)
 output = first_values %>% 
   mutate_if(is.numeric, round, 2)
 output
@@ -153,8 +163,7 @@ output
 
 
 ```{r}
-library(gridExtra)
-pdf("../Images/first_valuation.pdf", height=11, width=8.5)
+pdf("../Images/Model1_Valuation.pdf", height=11, width=8.5)
 grid.table(output)
 dev.off()
 ```
