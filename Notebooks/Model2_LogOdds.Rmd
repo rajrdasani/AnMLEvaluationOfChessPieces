@@ -29,13 +29,13 @@ chess_games_pieces_remaining
 ```
 
 ```{r}
-whitelogit <- glm(winner_white ~ white_bishop_rem + white_knight_rem + white_pawn_rem +
+whitelogit <- glm(outcome_white ~ white_bishop_rem + white_knight_rem + white_pawn_rem +
                  white_queen_rem + white_rook_rem, data = chess_games_pieces_remaining)
 confint(whitelogit)
 ```
 
 ```{r}
-blacklogit <- glm(winner_black ~ black_bishop_rem + black_knight_rem + black_pawn_rem +
+blacklogit <- glm(outcome_black ~ black_bishop_rem + black_knight_rem + black_pawn_rem +
                  black_queen_rem + black_rook_rem, data = chess_games_pieces_remaining)
 confint(blacklogit)
 ```
@@ -52,7 +52,7 @@ chess_games_pieces_remaining = chess_games_pieces_remaining %>%
   mutate(queen_diff = white_queen_rem - black_queen_rem)
 ```
 
-
+Never used but could be valuable:
 ```{r}
 logit2prob <- function(logit){
   odds <- exp(logit)
@@ -63,7 +63,7 @@ logit2prob <- function(logit){
 
 
 ```{r}
-alllogit = glm(winner_white ~ 
+alllogit = glm(outcome_white ~ 
                  1 + pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
                data = chess_games_pieces_remaining, family = 'binomial')
 summary(alllogit)
@@ -136,12 +136,23 @@ Repeat, but just for Novice and Class A
 ```{r}
 novice_data_remaining = 
   chess_games_pieces_remaining[chess_games_pieces_remaining$rating_category == "Novice",]
+classd_data_remaining = 
+  chess_games_pieces_remaining[chess_games_pieces_remaining$rating_category == "ClassD",]
+classc_data_remaining = 
+  chess_games_pieces_remaining[chess_games_pieces_remaining$rating_category == "ClassC",]
+classb_data_remaining = 
+  chess_games_pieces_remaining[chess_games_pieces_remaining$rating_category == "ClassB",]
 classa_data_remaining = 
   chess_games_pieces_remaining[chess_games_pieces_remaining$rating_category == "ClassA",]
 ```
 
+In full transparency, should have definetly functionilzed this, but was running a bit short on time, and did not have time for a potential debugging.
+
+
+Novice
+
 ```{r}
-novice_alllogit = glm(winner_white ~ 
+novice_alllogit = glm(outcome_white ~ 
                  1 + pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
                data = novice_data_remaining, family = 'binomial')
 
@@ -179,8 +190,132 @@ ggplot(novice_coef_df, aes(Piece, logodds_knightscaled)) +
 ggsave("../Images/Model2_NoviceLogOddsValue_KnightScaled.pdf")
 ```
 
+Class D
+
 ```{r}
-classa_alllogit = glm(winner_white ~ 
+classd_alllogit = glm(outcome_white ~ 
+                 1 + pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
+               data = classd_data_remaining, family = 'binomial')
+
+#summary(novice_alllogit)
+#confint(novice_alllogit)
+
+classd_coef_df = data.frame(logodds = coefficients(classd_alllogit))*-1
+classd_coef_df <- tibble::rownames_to_column(classd_coef_df, "Piece")
+classd_coef_df$Piece <- factor(classd_coef_df$Piece, levels = novice_coef_df$Piece)
+
+classd_knight_logodds = classd_coef_df[3,]$logodds
+classd_knightscalefactor = 3 / classd_knight_logodds
+
+classd_coef_df$logodds_knightscaled = classd_coef_df$logodds * classd_knightscalefactor
+classd_coef_df
+```
+
+```{r}
+ggplot(classd_coef_df, aes(Piece, logodds_knightscaled)) + 
+  geom_col(fill = 'dark green') +
+  coord_flip() +
+  geom_text(data = classd_coef_df,
+            aes(x = Piece, y = logodds_knightscaled, 
+                label=round(logodds_knightscaled,2)),
+            color="white", size=3.5,
+            position = position_dodge(width = .9),
+            hjust = 2.0) +
+  labs(
+    title = 'Log Odds Value of Class D Pieces, Scaled to Knight = 3',
+    subtitle = 'Class D Chess Pieces proposed relative value based on log reg model, with knight set at 3.0',
+    y = "LogOdds Value", 
+    x = "Piece Difference"
+  )
+
+ggsave("../Images/Model2_ClassDLogOddsValue_KnightScaled.pdf")
+```
+
+Class C
+
+```{r}
+classc_alllogit = glm(outcome_white ~ 
+                 1 + pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
+               data = classc_data_remaining, family = 'binomial')
+
+#summary(novice_alllogit)
+#confint(novice_alllogit)
+
+classc_coef_df = data.frame(logodds = coefficients(classc_alllogit))*-1
+classc_coef_df <- tibble::rownames_to_column(classc_coef_df, "Piece")
+classc_coef_df$Piece <- factor(classc_coef_df$Piece, levels = classc_coef_df$Piece)
+
+classc_knight_logodds = classc_coef_df[3,]$logodds
+classc_knightscalefactor = 3 / classc_knight_logodds
+
+classc_coef_df$logodds_knightscaled = classc_coef_df$logodds * classc_knightscalefactor
+classc_coef_df
+```
+
+```{r}
+ggplot(classc_coef_df, aes(Piece, logodds_knightscaled)) + 
+  geom_col(fill = 'dark green') +
+  coord_flip() +
+  geom_text(data = classc_coef_df,
+            aes(x = Piece, y = logodds_knightscaled, 
+                label=round(logodds_knightscaled,2)),
+            color="white", size=3.5,
+            position = position_dodge(width = .9),
+            hjust = 2.0) +
+  labs(
+    title = 'Log Odds Value of Class C Pieces, Scaled to Knight = 3',
+    subtitle = 'Class C Chess Pieces proposed relative value based on log reg model, with knight set at 3.0',
+    y = "LogOdds Value", 
+    x = "Piece Difference"
+  )
+
+ggsave("../Images/Model2_ClassCLogOddsValue_KnightScaled.pdf")
+```
+
+
+Class B
+
+```{r}
+classb_alllogit = glm(outcome_white ~ 
+                 1 + pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
+               data = classb_data_remaining, family = 'binomial')
+
+#summary(novice_alllogit)
+#confint(novice_alllogit)
+
+classb_coef_df = data.frame(logodds = coefficients(classb_alllogit))*-1
+classb_coef_df <- tibble::rownames_to_column(classb_coef_df, "Piece")
+classb_coef_df$Piece <- factor(classb_coef_df$Piece, levels = classb_coef_df$Piece)
+
+classb_knight_logodds = classb_coef_df[3,]$logodds
+classb_knightscalefactor = 3 / classb_knight_logodds
+
+classb_coef_df$logodds_knightscaled = classb_coef_df$logodds * classb_knightscalefactor
+classb_coef_df
+```
+
+```{r}
+ggplot(classb_coef_df, aes(Piece, logodds_knightscaled)) + 
+  geom_col(fill = 'dark green') +
+  coord_flip() +
+  geom_text(data = classb_coef_df,
+            aes(x = Piece, y = logodds_knightscaled, 
+                label=round(logodds_knightscaled,2)),
+            color="white", size=3.5,
+            position = position_dodge(width = .9),
+            hjust = 2.0) +
+  labs(
+    title = 'Log Odds Value of Class B Pieces, Scaled to Knight = 3',
+    subtitle = 'Class B Chess Pieces proposed relative value based on log reg model, with knight set at 3.0',
+    y = "LogOdds Value", 
+    x = "Piece Difference"
+  )
+
+ggsave("../Images/Model2_ClassBLogOddsValue_KnightScaled.pdf")
+```
+
+```{r}
+classa_alllogit = glm(outcome_white ~ 
                  1 + pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
                data = classa_data_remaining, family = 'binomial')
 
@@ -251,15 +386,20 @@ ggplot(dfm, aes(fill = `Rating Category`, y = LogOdds, x = Piece)) +
 ```
 
 
-
-
 ```{r}
-ll.null <- alllogit$null.deviance/-2
-ll.proposed <- alllogit$deviance/-2
+compare_coef_df_full = data.frame(compare_coef_df)
+compare_coef_df_full$ClassB_logodds = classb_coef_df$logodds_knightscaled
+compare_coef_df_full$ClassC_logodds = classc_coef_df$logodds_knightscaled
+compare_coef_df_full$ClassD_logodds = classd_coef_df$logodds_knightscaled
+compare_coef_df_full = compare_coef_df_full[, c(1,2,6,5,4,3)]
+compare_coef_df_full[,c(2:6)] = round(compare_coef_df_full[,c(2:6)], 2)
+compare_coef_df_full
 
-(ll.null - ll.proposed) / ll.null
+library(gridExtra)
+pdf("../Images/Model2_Valuation.pdf", height=11, width=8.5)
+grid.table(compare_coef_df_full)
+dev.off()
 
-1 - pchisq(2*(ll.proposed-ll.null), df = (length(alllogit$coefficients) - 1))
 ```
 
 

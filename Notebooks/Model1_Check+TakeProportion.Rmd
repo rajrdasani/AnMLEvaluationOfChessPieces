@@ -147,9 +147,7 @@ ggplot(dfm, aes(fill = rating_category, y = value, x = variable)) +
 ```{r}
 library(dplyr)
 output = first_values %>% 
-  mutate_if(is.numeric, round, 2) %>%
-  filter(rating_category %in% c('ClassA', 'Novice', 'Standard'))
-
+  mutate_if(is.numeric, round, 2)
 output
 ```
 
