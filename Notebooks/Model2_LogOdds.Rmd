@@ -10,152 +10,380 @@ library(stringr)
 library(tidyr)
 library(data.table)
 library(tibble)
+library(mltools)
+library(aod)
 ```
 
 ```{r}
 chess_games_analyzed = read.csv('../Data/chess_games_analyzed.csv')
-chess_games_analyzed
+#run last 3 code blocks to get chess_games_pieces_remaining
+chess_games_pieces_remaining = read.csv('../Data/chess_games_pieces_remaining.csv')
 ```
+
+```{r}
+outcome = as.factor(chess_games_pieces_remaining$winner)
+one_hot_winner = one_hot(data.table('outcome' = outcome))
+
+chess_games_pieces_remaining[,14:16] = one_hot_winner
+chess_games_pieces_remaining
+```
+
+```{r}
+whitelogit <- glm(winner_white ~ white_bishop_rem + white_knight_rem + white_pawn_rem +
+                 white_queen_rem + white_rook_rem, data = chess_games_pieces_remaining)
+confint(whitelogit)
+```
+
+```{r}
+blacklogit <- glm(winner_black ~ black_bishop_rem + black_knight_rem + black_pawn_rem +
+                 black_queen_rem + black_rook_rem, data = chess_games_pieces_remaining)
+confint(blacklogit)
+```
+
+Inspired by Rasmus Bååth at R Bloggers - look at remaining piece difference
+
+https://www.r-bloggers.com/2015/06/big-data-and-chess-what-are-the-predictive-point-values-of-chess-pieces/
+```{r}
+chess_games_pieces_remaining = chess_games_pieces_remaining %>%
+  mutate(pawn_diff = white_pawn_rem - black_pawn_rem) %>%
+  mutate(knight_diff = white_knight_rem - black_knight_rem) %>%
+  mutate(bishop_diff = white_bishop_rem - black_bishop_rem) %>%
+  mutate(rook_diff = white_rook_rem - black_rook_rem) %>%
+  mutate(queen_diff = white_queen_rem - black_queen_rem)
+```
+
+
+```{r}
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+```
+
+
+```{r}
+alllogit = glm(winner_white ~ 
+                 1 + pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
+               data = chess_games_pieces_remaining, family = 'binomial')
+summary(alllogit)
+confint(alllogit)
+
+coef_df = data.frame(logodds = coefficients(alllogit))*-1
+coef_df <- tibble::rownames_to_column(coef_df, "Piece")
+coef_df$Piece <- factor(coef_df$Piece, levels = coef_df$Piece)
+
+coef_df
+```
+
+```{r}
+ggplot(coef_df, aes(Piece, logodds)) + 
+  geom_col(fill = 'dark green') +
+  coord_flip() +
+  geom_text(data = coef_df,
+            aes(x = Piece, y = logodds, 
+                label=round(logodds,2)),
+            color="white", size=3.5,
+            position = position_dodge(width = .9),
+            hjust = 1.5) +
+  labs(
+    title = 'Log Odds Value of Pieces',
+    subtitle = 'Chess Piece proposed relative value based on logistic regression model',
+    y = "LogOdds Value", 
+    x = "Piece Difference"
+  )
+
+ggsave("../Images/Model2_LogOddsOverallValue.pdf")
+```
+
+Numbers are hard to interpret here, lets scale by setting the pawn's logodds to 1
+
+```{r}
+pawn_logodds = coef_df[2,]$logodds
+pawnscalefactor = 1 / pawn_logodds
+
+coef_df$logodds_pawnscaled = coef_df$logodds * pawnscalefactor
+```
+
+```{r}
+knight_logodds = coef_df[3,]$logodds
+knightscalefactor = 3 / knight_logodds
+
+coef_df$logodds_knightscaled = coef_df$logodds * knightscalefactor
+coef_df
+```
+```{r}
+ggplot(coef_df, aes(Piece, logodds_knightscaled)) + 
+  geom_col(fill = 'dark green') +
+  coord_flip() +
+  geom_text(data = coef_df,
+            aes(x = Piece, y = logodds_knightscaled, 
+                label=round(logodds_knightscaled,2)),
+            color="white", size=3.5,
+            position = position_dodge(width = .9),
+            hjust = 1.5) +
+  labs(
+    title = 'Log Odds Value of Pieces, Scaled to Knight = 3',
+    subtitle = 'Chess Piece proposed relative value based on log regression model, with knight set at 3.0',
+    y = "LogOdds Value", 
+    x = "Piece Difference"
+  )
+
+ggsave("../Images/Model2_LogOddsOverallValue_KnightScaled.pdf")
+```
+
+Repeat, but just for Novice and Class A
+```{r}
+novice_data_remaining = 
+  chess_games_pieces_remaining[chess_games_pieces_remaining$rating_category == "Novice",]
+classa_data_remaining = 
+  chess_games_pieces_remaining[chess_games_pieces_remaining$rating_category == "ClassA",]
+```
+
+```{r}
+novice_alllogit = glm(winner_white ~ 
+                 1 + pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
+               data = novice_data_remaining, family = 'binomial')
+
+#summary(novice_alllogit)
+#confint(novice_alllogit)
+
+novice_coef_df = data.frame(logodds = coefficients(novice_alllogit))*-1
+novice_coef_df <- tibble::rownames_to_column(novice_coef_df, "Piece")
+novice_coef_df$Piece <- factor(novice_coef_df$Piece, levels = novice_coef_df$Piece)
+
+novice_knight_logodds = novice_coef_df[3,]$logodds
+novice_knightscalefactor = 3 / novice_knight_logodds
+
+novice_coef_df$logodds_knightscaled = novice_coef_df$logodds * novice_knightscalefactor
+novice_coef_df
+```
+
+```{r}
+ggplot(novice_coef_df, aes(Piece, logodds_knightscaled)) + 
+  geom_col(fill = 'dark green') +
+  coord_flip() +
+  geom_text(data = novice_coef_df,
+            aes(x = Piece, y = logodds_knightscaled, 
+                label=round(logodds_knightscaled,2)),
+            color="white", size=3.5,
+            position = position_dodge(width = .9),
+            hjust = 2.0) +
+  labs(
+    title = 'Log Odds Value of Novice Pieces, Scaled to Knight = 3',
+    subtitle = 'Novice Chess Pieces proposed relative value based on log reg model, with knight set at 3.0',
+    y = "LogOdds Value", 
+    x = "Piece Difference"
+  )
+
+ggsave("../Images/Model2_NoviceLogOddsValue_KnightScaled.pdf")
+```
+
+```{r}
+classa_alllogit = glm(winner_white ~ 
+                 1 + pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
+               data = classa_data_remaining, family = 'binomial')
+
+#summary(novice_alllogit)
+#confint(novice_alllogit)
+
+classa_coef_df = data.frame(logodds = coefficients(classa_alllogit))*-1
+classa_coef_df <- tibble::rownames_to_column(classa_coef_df, "Piece")
+classa_coef_df$Piece <- factor(classa_coef_df$Piece, levels = classa_coef_df$Piece)
+
+classa_knight_logodds = classa_coef_df[3,]$logodds
+classa_knightscalefactor = 3 / classa_knight_logodds
+
+classa_coef_df$logodds_knightscaled = classa_coef_df$logodds * classa_knightscalefactor
+classa_coef_df
+```
+
+```{r}
+ggplot(classa_coef_df, aes(Piece, logodds_knightscaled)) + 
+  geom_col(fill = 'dark green') +
+  coord_flip() +
+  geom_text(data = classa_coef_df,
+            aes(x = Piece, y = logodds_knightscaled, 
+                label=round(logodds_knightscaled,2)),
+            color="white", size=3.5,
+            position = position_dodge(width = .9),
+            hjust = 2.0) +
+  labs(
+    title = 'Log Odds Value of Class A Pieces, Scaled to Knight = 3',
+    subtitle = 'Class A Chess Pieces proposed relative value based on log reg model, with knight set at 3.0',
+    y = "LogOdds Value", 
+    x = "Piece Difference"
+  )
+
+ggsave("../Images/Model2_ClassALogOddsValue_KnightScaled.pdf")
+```
+
+```{r}
+compare_coef_df = novice_coef_df
+compare_coef_df$Novice_logodds = compare_coef_df$logodds_knightscaled
+compare_coef_df$logodds_knightscaled = NA
+compare_coef_df$ClassA_logodds = classa_coef_df$logodds_knightscaled
+compare_coef_df = compare_coef_df[,c(1,4,5)]
+compare_coef_df
+
+dfm <- melt(compare_coef_df[,colnames(compare_coef_df)],
+            id.vars = 1)
+
+colnames(dfm) <- c('Piece', 'Rating Category', 'LogOdds')
+
+ggplot(dfm, aes(fill = `Rating Category`, y = LogOdds, x = Piece)) + 
+  geom_bar(position="dodge", stat="identity") + 
+  geom_text(data = dfm,
+            aes(x = Piece, y = LogOdds, 
+                label=round(LogOdds, 2),
+                group = `Rating Category`),
+            color="black", size=3.5,
+            position = position_dodge(width = .9),
+            hjust = -0.1) +
+  labs(
+    title = 'Log Odds Value, Scaled to Knight = 3',
+    subtitle = 'Comparing Class A and Novice Logistic Regression Values',
+    x = 'Piece Difference',
+    y = 'Log Odds Value, Knight Scaled'
+  ) + 
+  coord_flip()
+
+```
+
+
+
+
+```{r}
+ll.null <- alllogit$null.deviance/-2
+ll.proposed <- alllogit$deviance/-2
+
+(ll.null - ll.proposed) / ll.null
+
+1 - pchisq(2*(ll.proposed-ll.null), df = (length(alllogit$coefficients) - 1))
+```
+
+
+
 
 
 Combine lists of all pieces taken. 
 Make sure not to run this more than once
 ```{r}
-chess_games_analyzed_2 = chess_games_analyzed %>%
-  unite('white_allpieces_taken', 41:46, remove = FALSE) %>%
-  unite('black_allpieces_taken', 72:77, remove = FALSE)
+#chess_games_analyzed_2 = chess_games_analyzed %>%
+#  unite('white_allpieces_taken', 41:46, remove = FALSE) %>%
+#  unite('black_allpieces_taken', 72:77, remove = FALSE)
 ```
 
 
 
 Create function to find what pieces are remaining
 ```{r}
-endofgame_pieces = function(lst_allpiecestaken){
-  
-  #clean list of all pieces taken and turn it into a vector
-  cleanlst_allpiecestaken = str_replace_all(lst_allpiecestaken, "_", "")
-  cleanlst_allpiecestaken = str_split(cleanlst_allpiecestaken, " ")[[1]]
-  cleanlst_allpiecestaken = cleanlst_allpiecestaken[nzchar(cleanlst_allpiecestaken)]
-  
-  #create summarized table
-  df = data.frame(table(cleanlst_allpiecestaken))
-  
-  #EDGE CASE
-  if(length(df) == 1){
-    df = data.frame(cleanlst_allpiecestaken = 'Pawn',
-           Freq = 0)
-  }
-  
-  #clean dataframe
-  df$cleanlst_allpiecestaken = as.character(df$cleanlst_allpiecestaken)
-  
-  #fill in such that we have each piece in the dataframe 
-  if(!("Pawn" %in% df$cleanlst_allpiecestaken)) {
-    df[nrow(df) + 1,] = c('Pawn', 0)
-  }
-  if(!("Knight" %in% df$cleanlst_allpiecestaken)) {
-    df[nrow(df) + 1,] = c('Knight', 0)
-  }
-  if(!("Bishop" %in% df$cleanlst_allpiecestaken)) {
-    df[nrow(df) + 1,] = c('Bishop', 0)
-  }
-  if(!("Rook" %in% df$cleanlst_allpiecestaken)) {
-    df[nrow(df) + 1,] = c('Rook', 0)
-  }
-  if(!("Queen" %in% df$cleanlst_allpiecestaken)) {
-    df[nrow(df) + 1,] = c('Queen', 0)
-  }
-  
-  df = df %>%
-    #arrange dataframe alphabetically so intial_pieces appending is clean
-    arrange(cleanlst_allpiecestaken) %>%
-    mutate(initial_pieces = c(2,2,8,1,2)) %>%
-    mutate(Freq = as.numeric(Freq)) %>%
-    mutate(initial_pieces = as.numeric(initial_pieces)) %>%
-    #find remaining pieces for each game 
-    mutate(remaining_pieces = initial_pieces - Freq)
-  
-  #EDGE: for promotions, there may be more than the initial pieces, leading to a -1 in the remaining pieces column. Therefore, make every negative value a positive one
-  
-  df[,4][df[,4] < 0] <- 0
-  
-  
-  #transpose dataframe to be able to append to dataframe
-  df = df[,c(1,4)]
-  df_t = transpose(df)
-  colnames(df_t) = paste0(df_t[1,], "_remaining")
-  df_t = df_t[2,]
-  
-  
-  return(df_t)
-}
+#endofgame_pieces = function(lst_allpiecestaken){
+#  
+#  #clean list of all pieces taken and turn it into a vector
+#  cleanlst_allpiecestaken = str_replace_all(lst_allpiecestaken, "_", "")
+#  cleanlst_allpiecestaken = str_split(cleanlst_allpiecestaken, " ")[[1]]
+#  cleanlst_allpiecestaken = cleanlst_allpiecestaken[nzchar(cleanlst_allpiecestaken)]
+#  
+#  #create summarized table
+#  df = data.frame(table(cleanlst_allpiecestaken))
+#  
+#  #EDGE CASE
+#  if(length(df) == 1){
+#    df = data.frame(cleanlst_allpiecestaken = 'Pawn',
+#           Freq = 0)
+#  }
+#  
+#  #clean dataframe
+#  df$cleanlst_allpiecestaken = as.character(df$cleanlst_allpiecestaken)
+#  
+#  #fill in such that we have each piece in the dataframe 
+#  if(!("Pawn" %in% df$cleanlst_allpiecestaken)) {
+#    df[nrow(df) + 1,] = c('Pawn', 0)
+#  }
+#  if(!("Knight" %in% df$cleanlst_allpiecestaken)) {
+#    df[nrow(df) + 1,] = c('Knight', 0)
+#  }
+#  if(!("Bishop" %in% df$cleanlst_allpiecestaken)) {
+#    df[nrow(df) + 1,] = c('Bishop', 0)
+#  }
+#  if(!("Rook" %in% df$cleanlst_allpiecestaken)) {
+#    df[nrow(df) + 1,] = c('Rook', 0)
+#  }
+#  if(!("Queen" %in% df$cleanlst_allpiecestaken)) {
+#    df[nrow(df) + 1,] = c('Queen', 0)
+#  }
+#  
+#  df = df %>%
+#    #arrange dataframe alphabetically so intial_pieces appending is clean
+#    arrange(cleanlst_allpiecestaken) %>%
+#    mutate(initial_pieces = c(2,2,8,1,2)) %>%
+#    mutate(Freq = as.numeric(Freq)) %>%
+#    mutate(initial_pieces = as.numeric(initial_pieces)) %>%
+#    #find remaining pieces for each game 
+#    mutate(remaining_pieces = initial_pieces - Freq)
+#  
+#  #EDGE: for promotions, there may be more than the initial pieces, leading to a -1 in the #remaining pieces column. Therefore, make every negative value a positive one
+#  
+#  df[,4][df[,4] < 0] <- 0
+#  
+#  
+#  #transpose dataframe to be able to append to dataframe
+#  df = df[,c(1,4)]
+#  df_t = transpose(df)
+#  colnames(df_t) = paste0(df_t[1,], "_remaining")
+#  df_t = df_t[2,]
+#  
+#  
+#  return(df_t)
+#}
 
 ```
 
 
 All rows
 ```{r}
-endofgame_pieces(chess_games_analyzed_2$white_allpieces_taken[2])[1,c(1:5)]
+#endofgame_pieces(chess_games_analyzed_2$white_allpieces_taken[2])[1,c(1:5)]
 
-chess_games_analyzed_2 = chess_games_analyzed_2 %>%
-  add_column(white_bishop_rem = NA,
-             white_knight_rem = NA,
-             white_pawn_rem = NA,
-             white_queen_rem = NA,
-             white_rook_rem = NA,
-             black_bishop_rem = NA,
-             black_knight_rem = NA,
-             black_pawn_rem = NA,
-             black_queen_rem = NA,
-             black_rook_rem = NA)
+#chess_games_analyzed_2 = chess_games_analyzed_2 %>%
+#  add_column(white_bishop_rem = NA,
+#             white_knight_rem = NA,
+#             white_pawn_rem = NA,
+#             white_queen_rem = NA,
+#             white_rook_rem = NA,
+#             black_bishop_rem = NA,
+#             black_knight_rem = NA,
+#             black_pawn_rem = NA,
+#             black_queen_rem = NA,
+#             black_rook_rem = NA)
   
 
-for(i in c(1:nrow(chess_games_analyzed_2))) {
+#for(i in c(1:nrow(chess_games_analyzed_2))) {
   
-  print(i)
+#  print(i)
   
-  white_pieces = chess_games_analyzed_2$white_allpieces_taken[i]
-  black_pieces = chess_games_analyzed_2$black_allpieces_taken[i]
+#  white_pieces = chess_games_analyzed_2$white_allpieces_taken[i]
+#  black_pieces = chess_games_analyzed_2$black_allpieces_taken[i]
   
-  print('step 1')
+#  print('step 1')
   
-  white_df = endofgame_pieces(white_pieces)
-  black_df = endofgame_pieces(black_pieces)
+#  white_df = endofgame_pieces(white_pieces)
+#  black_df = endofgame_pieces(black_pieces)
   
-  print('step 2')
+#  print('step 2')
   
   
-  chess_games_analyzed_2[i,84:88] = white_df[1,c(1:5)]
-  chess_games_analyzed_2[i,89:93] = black_df[1,c(1:5)]
+#  chess_games_analyzed_2[i,84:88] = white_df[1,c(1:5)]
+#  chess_games_analyzed_2[i,89:93] = black_df[1,c(1:5)]
   
-}
+#}
+
+#Subset dataframe to only include relevant columns
+
+#chess_games_pieces_remaining = chess_games_analyzed_2[,c(7,82:93)]
+
+#write.csv(chess_games_pieces_remaining,"../Data/chess_games_pieces_remaining.csv", row.names = FALSE)
 ```
 
 
-```{r}
-chess_games_analyzed_2[5883,]$moves
-
-endofgame_pieces(chess_games_analyzed_2$white_allpieces_taken[5883])
-
-test = chess_games_analyzed_2$white_allpieces_taken[5883]
-
-test
-test2 = str_replace_all(test, "_", "")
-
-test3 = str_split(test2, " ")[[1]]
-
-test4 = test3[nzchar(test3)]
-
-df = data.frame(table(test4))
-df
-
-df
-length(df)
-
-
-chess_games_analyzed_2[2702,]$moves
-```
-
-
-Subset dataframe to only include relevant columns
 
