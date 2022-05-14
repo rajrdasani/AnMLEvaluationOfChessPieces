@@ -1,0 +1,49 @@
+---
+title: "Model3:TreesofSuccess"
+output: html_document
+---
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(tidyr)
+library(data.table)
+library(tibble)
+library(mltools)
+library(aod)
+```
+
+```{r}
+chess_games_analyzed = read.csv('../Data/chess_games_analyzed.csv')
+#run last 3 code blocks to get chess_games_pieces_remaining
+chess_games_pieces_remaining = read.csv('../Data/chess_games_pieces_remaining.csv')
+```
+
+```{r}
+outcome = as.factor(chess_games_pieces_remaining$winner)
+one_hot_winner = one_hot(data.table('outcome' = outcome))
+
+chess_games_pieces_remaining[,14:16] = one_hot_winner
+
+chess_games_pieces_remaining = chess_games_pieces_remaining %>%
+  mutate(pawn_diff = white_pawn_rem - black_pawn_rem) %>%
+  mutate(knight_diff = white_knight_rem - black_knight_rem) %>%
+  mutate(bishop_diff = white_bishop_rem - black_bishop_rem) %>%
+  mutate(rook_diff = white_rook_rem - black_rook_rem) %>%
+  mutate(queen_diff = white_queen_rem - black_queen_rem)
+```
+
+```{r}
+chess_games_pieces_remaining
+```
+
+
+```{r}
+linreg = lm(outcome_white ~ pawn_diff + knight_diff + bishop_diff + rook_diff + queen_diff,
+               data = chess_games_pieces_remaining, family = 'binomial')
+
+summary(linreg)
+```
+
