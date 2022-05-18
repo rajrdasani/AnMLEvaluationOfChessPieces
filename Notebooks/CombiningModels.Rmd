@@ -12,5 +12,49 @@ library(data.table)
 library(tibble)
 library(mltools)
 library(aod)
+library(janitor)
+library(gridExtra)
+```
+
+
+
+
+Combine 1: 50/50 Across All Levels
+```{r}
+#Run this from Model1_....Rmd
+model1 = output
+#Run this from Model2_LogOdds.Rmd
+model2 = compare_coef_df_full
+```
+
+```{r}
+model1_clean = as.data.frame(t(model1))
+model1_clean = model1_clean %>%
+  row_to_names(row_number = 1)
+model1_clean = model1_clean[,c(-6, -7)]
+model1_clean
+
+model2_clean = model2[-1,-7]
+model2_clean
+```
+
+```{r}
+combined_1 = as.data.frame(matrix(nrow=5,ncol=6))
+colnames(combined_1)<-c("Piece", "ClassA_comb", "ClassB_comb", "ClassC_comb", "ClassD_comb", "Novice_comb")
+
+combined_1$Piece = c("Pawn", "Knight", "Bishop", "Rook", "Queen")
+combined_1$ClassA_comb = (as.numeric(model1_clean$ClassA) + model2_clean$ClassA_logodds) / 2
+combined_1$ClassB_comb = (as.numeric(model1_clean$ClassB) + model2_clean$ClassB_logodds) / 2
+combined_1$ClassC_comb = (as.numeric(model1_clean$ClassC) + model2_clean$ClassC_logodds) / 2
+combined_1$ClassD_comb = (as.numeric(model1_clean$ClassD) + model2_clean$ClassD_logodds) / 2
+combined_1$Novice_comb = (as.numeric(model1_clean$Novice) + model2_clean$Novice_logodds) / 2
+
+combined_1
+```
+
+```{r}
+pdf("../Images/CombinedModel1.pdf", height=11, width=8.5)
+grid.table(combined_1)
+dev.off()
 ```
 

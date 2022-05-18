@@ -132,7 +132,7 @@ ggplot(coef_df, aes(Piece, logodds_knightscaled)) +
 ggsave("../Images/Model2_LogOddsOverallValue_KnightScaled.pdf")
 ```
 
-Repeat, but just for Novice and Class A
+Repeat for all levels
 ```{r}
 novice_data_remaining = 
   chess_games_pieces_remaining[chess_games_pieces_remaining$rating_category == "Novice",]
